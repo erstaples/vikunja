@@ -2,7 +2,9 @@ import type {APIRequestContext} from '@playwright/test'
 import {objectToSnakeCase} from '../../src/helpers/case'
 
 export async function updateUserSettings(apiContext: APIRequestContext, token: string, settings: any) {
-	const apiUrl = process.env.API_URL || 'http://localhost:3456/api/v1'
+	// mage test:e2e exports API_URL with a trailing slash; strip it so the
+	// literal '/user' joins below don't produce a 404-ing '//user'.
+	const apiUrl = (process.env.API_URL || 'http://localhost:3456/api/v1').replace(/\/$/, '')
 
 	const userResponse = await apiContext.get(`${apiUrl}/user`, {
 		headers: {
