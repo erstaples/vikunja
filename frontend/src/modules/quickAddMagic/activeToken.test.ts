@@ -1,6 +1,6 @@
 import {describe, it, expect} from 'vitest'
 
-import {findActiveQuickAddToken, formatQuickAddToken, getActiveLine} from './activeToken'
+import {findActiveQuickAddToken, formatQuickAddToken, getActiveLine, replaceActiveQuickAddToken} from './activeToken'
 import {PrefixMode} from './prefixes'
 
 describe('getActiveLine', () => {
@@ -153,6 +153,10 @@ describe('findActiveQuickAddToken — quoting', () => {
 	it('ends a quoted token at the closing quote, not the next space', () => {
 		expect(find('Plan #"Office Move" today', TODOIST, 19)).toMatchObject({query: 'Office Move', end: 19})
 	})
+
+	it('returns null when the caret is past a closed quoted token followed by more text', () => {
+		expect(find('Plan #"Office Move" today', TODOIST, 25)).toBeNull()
+	})
 })
 
 describe('findActiveQuickAddToken — multiline', () => {
@@ -181,5 +185,55 @@ describe('findActiveQuickAddToken — bullet markers', () => {
 
 	it('closes once the space after the bullet is typed', () => {
 		expect(find('* ', VIKUNJA, 2)).toBeNull()
+	})
+})
+
+// Replacement always follows detection in real use, so drive it the same way
+// rather than hand-building token objects that could drift from the detector.
+function replaceAt(text: string, mode: PrefixMode, title: string, caret: number = text.length) {
+	const token = findActiveQuickAddToken(text, caret, mode)
+	if (token === null) {
+		throw new Error('expected a token')
+	}
+	return replaceActiveQuickAddToken(text, token, title)
+}
+
+describe('replaceActiveQuickAddToken', () => {
+	it('replaces a token with a single-word title and appends a space', () => {
+		expect(replaceAt('Call dentist @hea', TODOIST, 'health'))
+			.toEqual({text: 'Call dentist @health ', caret: 21})
+	})
+
+	it('quotes a multi-word title', () => {
+		expect(replaceAt('Plan move #Office', TODOIST, 'Office Move').text)
+			.toBe('Plan move #"Office Move" ')
+	})
+
+	it('works in Vikunja mode', () => {
+		expect(replaceAt('Buy boxes *log', VIKUNJA, 'logistics').text)
+			.toBe('Buy boxes *logistics ')
+	})
+
+	it('preserves the quote style the user opened', () => {
+		expect(replaceAt('Plan #\'Office', TODOIST, 'Office Move').text)
+			.toBe('Plan #\'Office Move\' ')
+	})
+
+	it('preserves text after the token and does not double the space', () => {
+		expect(replaceAt('Call @hea today', TODOIST, 'health', 9))
+			.toEqual({text: 'Call @health today', caret: 12})
+	})
+
+	it('leaves a second token on the same line alone', () => {
+		expect(replaceAt('@one @tw', TODOIST, 'two').text).toBe('@one @two ')
+	})
+
+	it('replaces on the caret line only', () => {
+		const text = 'Call @one\nPlan @tw'
+		expect(replaceAt(text, TODOIST, 'two').text).toBe('Call @one\nPlan @two ')
+	})
+
+	it('fills in a bare prefix', () => {
+		expect(replaceAt('Call @', TODOIST, 'health').text).toBe('Call @health ')
 	})
 })

@@ -136,3 +136,18 @@ export function findActiveQuickAddToken(
 
 	return {kind, prefix, query, quote, start: line.start + start, end: line.start + end}
 }
+
+export function replaceActiveQuickAddToken(
+	text: string,
+	token: ActiveQuickAddToken,
+	title: string,
+): {text: string, caret: number} {
+	const replacement = formatQuickAddToken(token.prefix, title, token.quote)
+	const followedByWhitespace = /\s/.test(text.charAt(token.end))
+	const suffix = followedByWhitespace ? '' : ' '
+
+	return {
+		text: text.slice(0, token.start) + replacement + suffix + text.slice(token.end),
+		caret: token.start + replacement.length + suffix.length,
+	}
+}
