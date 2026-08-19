@@ -19,6 +19,8 @@ vi.mock('@/stores/base', () => ({
 }))
 
 import QuickAddTokenSuggestions from './QuickAddTokenSuggestions.vue'
+import XLabel from './Label.vue'
+import ProjectTitleWithAncestors from '@/components/project/partials/ProjectTitleWithAncestors.vue'
 import {useProjectStore} from '@/stores/projects'
 import type {QuickAddSuggestion} from '@/composables/useQuickAddTokenSelector'
 import type {IProject} from '@/modelTypes/IProject'
@@ -53,12 +55,14 @@ describe('QuickAddTokenSuggestions', () => {
 		])
 		expect(wrapper.get('[role="listbox"]').attributes('id')).toBe('listbox')
 		expect(wrapper.text()).toContain('health')
+		expect(wrapper.findComponent(XLabel).exists()).toBe(true)
 	})
 
 	it('renders project rows with ancestor context', () => {
 		const wrapper = mountList([{kind: 'project', title: 'Office Move', project: CHILD}])
 		expect(wrapper.text()).toContain('Work')
 		expect(wrapper.text()).toContain('Office Move')
+		expect(wrapper.findComponent(ProjectTitleWithAncestors).exists()).toBe(true)
 	})
 
 	it('marks the active row as selected', () => {
@@ -69,6 +73,8 @@ describe('QuickAddTokenSuggestions', () => {
 		const options = wrapper.findAll('[role="option"]')
 		expect(options[0].attributes('aria-selected')).toBe('false')
 		expect(options[1].attributes('aria-selected')).toBe('true')
+		expect(options[0].attributes('id')).toBe('listbox-option-0')
+		expect(options[1].attributes('id')).toBe('listbox-option-1')
 	})
 
 	it('emits select with the clicked index', async () => {
@@ -78,6 +84,15 @@ describe('QuickAddTokenSuggestions', () => {
 		])
 		await wrapper.findAll('[role="option"]')[1].trigger('click')
 		expect(wrapper.emitted('select')).toEqual([[1]])
+	})
+
+	it('emits hover with the row index on mousemove', async () => {
+		const wrapper = mountList([
+			{kind: 'label', title: 'health', label: {id: 1, title: 'health'} as ILabel},
+			{kind: 'label', title: 'home', label: {id: 3, title: 'home'} as ILabel},
+		])
+		await wrapper.findAll('[role="option"]')[1].trigger('mousemove')
+		expect(wrapper.emitted('hover')).toEqual([[1]])
 	})
 
 	it('renders the create row with the existing translation key', () => {

@@ -30,42 +30,43 @@ watch(() => props.activeIndex, index => {
 </script>
 
 <template>
-	<div
-		:id="listboxId"
-		class="quick-add-token-suggestions"
-		role="listbox"
-	>
-		<button
-			v-for="(suggestion, index) in suggestions"
-			:id="optionId(index)"
-			:key="suggestion.kind + suggestion.title"
-			ref="rows"
-			type="button"
-			class="suggestion-row"
-			:class="{'is-active': index === activeIndex}"
-			role="option"
-			:aria-selected="index === activeIndex"
-			@pointerdown.prevent
-			@click="$emit('select', index)"
-			@mousemove="$emit('hover', index)"
+	<div class="quick-add-token-suggestions">
+		<div
+			:id="listboxId"
+			role="listbox"
 		>
-			<XLabel
-				v-if="suggestion.kind === 'label' && suggestion.label"
-				:label="suggestion.label"
-			/>
-			<ProjectTitleWithAncestors
-				v-else-if="suggestion.kind === 'project' && suggestion.project"
-				:project="suggestion.project"
-			/>
-			<template v-else>
-				<Icon
-					icon="plus"
-					class="create-icon"
+			<button
+				v-for="(suggestion, index) in suggestions"
+				:id="optionId(index)"
+				:key="`${suggestion.kind}-${suggestion.project?.id ?? suggestion.label?.id ?? suggestion.title}`"
+				ref="rows"
+				type="button"
+				class="suggestion-row"
+				:class="{'is-active': index === activeIndex}"
+				role="option"
+				:aria-selected="index === activeIndex"
+				@pointerdown.prevent
+				@click="$emit('select', index)"
+				@mousemove="$emit('hover', index)"
+			>
+				<XLabel
+					v-if="suggestion.kind === 'label' && suggestion.label"
+					:label="suggestion.label"
 				/>
-				<span>{{ suggestion.title }}</span>
-				<span class="hint-text">{{ $t('task.label.createPlaceholder') }}</span>
-			</template>
-		</button>
+				<ProjectTitleWithAncestors
+					v-else-if="suggestion.kind === 'project' && suggestion.project"
+					:project="suggestion.project"
+				/>
+				<template v-else>
+					<Icon
+						icon="plus"
+						class="create-icon"
+					/>
+					<span>{{ suggestion.title }}</span>
+					<span class="hint-text">{{ $t('task.label.createPlaceholder') }}</span>
+				</template>
+			</button>
+		</div>
 
 		<div
 			class="is-sr-only"
