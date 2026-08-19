@@ -32,7 +32,7 @@
 					@input="selector.onSelectionChange"
 					@keyup="selector.onSelectionChange"
 					@click="selector.onSelectionChange"
-					@focus="selector.onSelectionChange"
+					@focus="selector.onFocus"
 					@blur="selector.close"
 				/>
 				<QuickAddMagic
@@ -48,6 +48,13 @@
 					@hover="selector.setActiveIndex"
 				/>
 			</p>
+			<div
+				class="is-sr-only"
+				role="status"
+				aria-live="polite"
+			>
+				{{ selector.isOpen.value ? $t('quickActions.results', selector.suggestions.value.length) : '' }}
+			</div>
 			<p class="control">
 				<XButton
 					class="add-task-button"

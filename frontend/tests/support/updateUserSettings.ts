@@ -1,4 +1,4 @@
-import type {APIRequestContext} from '@playwright/test'
+import {expect, type APIRequestContext} from '@playwright/test'
 import {objectToSnakeCase} from '../../src/helpers/case'
 
 export async function updateUserSettings(apiContext: APIRequestContext, token: string, settings: any) {
@@ -32,10 +32,11 @@ export async function updateUserSettings(apiContext: APIRequestContext, token: s
 		}
 	}
 
-	await apiContext.post(`${apiUrl}/user/settings/general`, {
+	const response = await apiContext.post(`${apiUrl}/user/settings/general`, {
 		headers: {
 			'Authorization': `Bearer ${token}`,
 		},
 		data: mergedSettings,
 	})
+	expect(response.ok()).toBe(true)
 }

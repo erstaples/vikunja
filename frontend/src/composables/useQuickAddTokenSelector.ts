@@ -135,6 +135,11 @@ export function useQuickAddTokenSelector({text, textarea, mode, enabled}: {
 		}
 	}
 
+	function onFocus() {
+		dismissed.value = false
+		onSelectionChange()
+	}
+
 	function select(index: number) {
 		const active = token.value
 		const suggestion = suggestions.value[index]
@@ -145,6 +150,9 @@ export function useQuickAddTokenSelector({text, textarea, mode, enabled}: {
 		const {text: newText, caret} = replaceActiveQuickAddToken(text.value, active, suggestion.title)
 		text.value = newText
 		lastText.value = newText
+		// Caret-at-token-end is "inside" per findActiveQuickAddToken, so the keyup
+		// from this very Enter/Tab would otherwise reopen the popup immediately.
+		dismissed.value = true
 		close()
 
 		// The textarea re-renders on the text change and would drop the caret.
@@ -155,6 +163,10 @@ export function useQuickAddTokenSelector({text, textarea, mode, enabled}: {
 
 	function onKeydown(event: KeyboardEvent): boolean {
 		if (!isOpen.value || event.isComposing) {
+			return false
+		}
+
+		if (event.key === 'Enter' && event.shiftKey) {
 			return false
 		}
 
@@ -188,6 +200,7 @@ export function useQuickAddTokenSelector({text, textarea, mode, enabled}: {
 		activeOptionId,
 		optionId,
 		onSelectionChange,
+		onFocus,
 		onKeydown,
 		select,
 		close,

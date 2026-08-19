@@ -1,5 +1,5 @@
 <script lang="ts" setup>
-import {computed, ref, watch} from 'vue'
+import {ref, watch} from 'vue'
 
 import Icon from '@/components/misc/Icon'
 import XLabel from '@/components/tasks/partials/Label.vue'
@@ -17,8 +17,6 @@ defineEmits<{
 	select: [index: number]
 	hover: [index: number]
 }>()
-
-const announcement = computed(() => String(props.suggestions.length))
 
 const rows = ref<HTMLButtonElement[]>([])
 
@@ -41,6 +39,7 @@ watch(() => props.activeIndex, index => {
 				:key="`${suggestion.kind}-${suggestion.project?.id ?? suggestion.label?.id ?? suggestion.title}`"
 				ref="rows"
 				type="button"
+				tabindex="-1"
 				class="suggestion-row"
 				:class="{'is-active': index === activeIndex}"
 				role="option"
@@ -67,14 +66,6 @@ watch(() => props.activeIndex, index => {
 				</template>
 			</button>
 		</div>
-
-		<div
-			class="is-sr-only"
-			role="status"
-			aria-live="polite"
-		>
-			{{ announcement }}
-		</div>
 	</div>
 </template>
 
@@ -92,6 +83,7 @@ watch(() => props.activeIndex, index => {
 	inset-inline: 0;
 	inline-size: 100%;
 	box-sizing: border-box;
+	clip-path: inset(0);
 }
 
 .suggestion-row {

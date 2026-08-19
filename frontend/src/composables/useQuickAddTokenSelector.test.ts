@@ -204,6 +204,14 @@ describe('keyboard', () => {
 		expect(text.value).toBe('Call @hea')
 	})
 
+	it('does not consume Shift+Enter, even while open', () => {
+		const {selector, text, type} = setup()
+		type('Call @hea')
+		expect(selector.onKeydown(key('Enter', {shiftKey: true}))).toBe(false)
+		expect(selector.isOpen.value).toBe(true)
+		expect(text.value).toBe('Call @hea')
+	})
+
 	it('closes on Escape and stays closed until the next input', () => {
 		const {selector, type} = setup()
 		type('Call @hea')
@@ -216,6 +224,22 @@ describe('keyboard', () => {
 
 		// Typing changes the text, which clears the dismissal.
 		type('Call @heal')
+		expect(selector.isOpen.value).toBe(true)
+	})
+})
+
+describe('focus', () => {
+	function key(name: string, extra: KeyboardEventInit = {}) {
+		return new KeyboardEvent('keydown', {key: name, ...extra})
+	}
+
+	it('reopens after Escape once the field is refocused', () => {
+		const {selector, type} = setup()
+		type('Call @hea')
+		selector.onKeydown(key('Escape'))
+		expect(selector.isOpen.value).toBe(false)
+
+		selector.onFocus()
 		expect(selector.isOpen.value).toBe(true)
 	})
 })
@@ -235,5 +259,26 @@ describe('select', () => {
 		selector.select(0)
 		await nextTick()
 		expect(text.value).toBe('Plan #"Office Move" ')
+	})
+
+	it('suppresses the popup reopening on a mid-line token with trailing text', async () => {
+		const {selector, text, type} = setup()
+		type('Call @hea today', 9)
+		expect(selector.isOpen.value).toBe(true)
+
+		selector.select(0)
+		await nextTick()
+		expect(text.value).toBe('Call @health today')
+		expect(selector.isOpen.value).toBe(false)
+
+		// The keyup from the very Enter/Tab that selected lands with the caret at
+		// the replaced token's end, which findActiveQuickAddToken treats as still
+		// inside the token — without suppression this reopens the popup.
+		selector.onSelectionChange()
+		expect(selector.isOpen.value).toBe(false)
+
+		// A later real edit still re-enables it.
+		type('Call @health today @heal')
+		expect(selector.isOpen.value).toBe(true)
 	})
 })
