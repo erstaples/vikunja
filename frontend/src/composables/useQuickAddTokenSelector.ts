@@ -64,10 +64,7 @@ export function useQuickAddTokenSelector({text, textarea, mode, enabled}: {
 				.slice(0, MAX_SUGGESTIONS)
 				.map(label => ({kind: 'label', title: label.title, label}))
 
-			// A create row only makes sense when nothing matches at all — a query
-			// like "hea" has no exact label but shouldn't offer to create "hea"
-			// while "health" and "healthcare" are right there to pick from.
-			if (active.query !== '' && found.length === 0) {
+			if (active.query !== '' && !labelStore.getLabelByExactTitle(active.query)) {
 				rows.push({kind: 'create-label', title: active.query})
 			}
 			return rows

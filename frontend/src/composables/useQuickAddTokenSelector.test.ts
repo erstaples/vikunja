@@ -82,7 +82,7 @@ describe('opening and closing', () => {
 		const {selector, type} = setup()
 		type('Call @hea')
 		expect(selector.isOpen.value).toBe(true)
-		expect(selector.suggestions.value.map(s => s.title)).toEqual(['health', 'healthcare'])
+		expect(selector.suggestions.value.map(s => s.title)).toEqual(['health', 'healthcare', 'hea'])
 	})
 
 	it('opens on a project token', () => {
@@ -143,6 +143,13 @@ describe('create label row', () => {
 		type('Call #nosuchproject')
 		expect(selector.suggestions.value).toEqual([])
 	})
+
+	it('offers to create a label whose name is a substring of an existing one', () => {
+		const {selector, type} = setup()
+		type('Call @heal')
+		const suggestions = selector.suggestions.value
+		expect(suggestions[suggestions.length - 1]).toEqual({kind: 'create-label', title: 'heal'})
+	})
 })
 
 describe('keyboard', () => {
@@ -159,11 +166,15 @@ describe('keyboard', () => {
 	it('moves the active index with arrows and clamps at both ends', () => {
 		const {selector, type} = setup()
 		type('Call @hea')
+		expect(selector.suggestions.value).toHaveLength(3)
 		expect(selector.activeIndex.value).toBe(0)
 		expect(selector.onKeydown(key('ArrowDown'))).toBe(true)
 		expect(selector.activeIndex.value).toBe(1)
 		selector.onKeydown(key('ArrowDown'))
-		expect(selector.activeIndex.value).toBe(1)
+		expect(selector.activeIndex.value).toBe(2)
+		selector.onKeydown(key('ArrowDown'))
+		expect(selector.activeIndex.value).toBe(2)
+		selector.onKeydown(key('ArrowUp'))
 		selector.onKeydown(key('ArrowUp'))
 		selector.onKeydown(key('ArrowUp'))
 		expect(selector.activeIndex.value).toBe(0)
