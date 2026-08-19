@@ -11,13 +11,7 @@
 		@search="findProjects"
 	>
 		<template #searchResult="{option}">
-			<span
-				v-if="projectStore.getAncestors(option).length > 1"
-				class="has-text-grey"
-			>
-				{{ projectStore.getAncestors(option).filter(p => p.id !== option.id).map(p => getProjectTitle(p)).join(' &gt; ') }} &gt;
-			</span>
-			{{ getProjectTitle(option) }}
+			<ProjectTitleWithAncestors :project="option" />
 		</template>
 	</Multiselect>
 </template>
@@ -28,10 +22,10 @@ import {reactive, ref, watch} from 'vue'
 import type {IProject} from '@/modelTypes/IProject'
 
 import {useProjectStore} from '@/stores/projects'
-import {getProjectTitle} from '@/helpers/getProjectTitle'
 
 import ProjectModel from '@/models/project'
 import Multiselect from '@/components/input/Multiselect.vue'
+import ProjectTitleWithAncestors from '@/components/project/partials/ProjectTitleWithAncestors.vue'
 
 const props = withDefaults(defineProps<{
 	modelValue?: IProject
