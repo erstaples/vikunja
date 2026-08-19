@@ -11,7 +11,11 @@
 		@search="findProjects"
 	>
 		<template #searchResult="{option}">
-			<ProjectTitleWithAncestors :project="option" />
+			<ProjectTitleWithAncestors
+				v-if="typeof option === 'object'"
+				:project="option"
+			/>
+			<span v-else>{{ option }}</span>
 		</template>
 	</Multiselect>
 </template>
