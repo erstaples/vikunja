@@ -23,12 +23,29 @@
 					:class="{'textarea-empty': newTaskTitle === ''}"
 					:placeholder="$t('project.list.addPlaceholder')"
 					rows="1"
-					@keydown="resetEmptyTitleError"
-					@keydown.enter="handleEnter"
-					@keydown.esc="blurTaskInput"
+					role="combobox"
+					aria-autocomplete="list"
+					:aria-expanded="selector.isOpen.value"
+					:aria-controls="selector.isOpen.value ? selector.listboxId : undefined"
+					:aria-activedescendant="selector.activeOptionId.value"
+					@keydown="onKeydown"
+					@input="selector.onSelectionChange"
+					@keyup="selector.onSelectionChange"
+					@click="selector.onSelectionChange"
+					@focus="selector.onSelectionChange"
+					@blur="selector.close"
 				/>
 				<QuickAddMagic
 					:highlight-hint-icon="taskAddHovered"
+				/>
+				<QuickAddTokenSuggestions
+					v-if="selector.isOpen.value"
+					:suggestions="selector.suggestions.value"
+					:active-index="selector.activeIndex.value"
+					:listbox-id="selector.listboxId"
+					:option-id="selector.optionId"
+					@select="selector.select"
+					@hover="selector.setActiveIndex"
 				/>
 			</p>
 			<p class="control">
@@ -68,6 +85,7 @@ import type {ITask} from '@/modelTypes/ITask'
 
 import Expandable from '@/components/base/Expandable.vue'
 import QuickAddMagic from '@/components/tasks/partials/QuickAddMagic.vue'
+import QuickAddTokenSuggestions from '@/components/tasks/partials/QuickAddTokenSuggestions.vue'
 import {parseSubtasksViaIndention, type TaskWithParent} from '@/helpers/parseSubtasksViaIndention'
 import TaskRelationService from '@/services/taskRelation'
 import TaskRelationModel from '@/models/taskRelation'
@@ -80,6 +98,7 @@ import {useConfigStore} from '@/stores/config'
 import {useTaskStore} from '@/stores/tasks'
 
 import {useAutoHeightTextarea} from '@/composables/useAutoHeightTextarea'
+import {useQuickAddTokenSelector} from '@/composables/useQuickAddTokenSelector'
 
 const emit = defineEmits<{
 	tasksAdded: [tasks: ITask[]],
@@ -95,6 +114,12 @@ const authStore = useAuthStore()
 const configStore = useConfigStore()
 const taskStore = useTaskStore()
 const router = useRouter()
+
+const selector = useQuickAddTokenSelector({
+	text: newTaskTitle,
+	textarea: newTaskInput,
+	mode: computed(() => authStore.settings.frontendSettings.quickAddMagicMode),
+})
 
 // enable only if we don't have a modal
 // onStartTyping(() => {
@@ -118,6 +143,8 @@ function resetEmptyTitleError() {
 const loading = computed(() => taskStore.isLoading)
 
 async function addTask() {
+	selector.close()
+
 	if (newTaskTitle.value === '') {
 		errorMessage.value = t('project.create.addTitleRequired')
 		return
@@ -258,6 +285,24 @@ async function addTask() {
 			return
 		}
 		throw e
+	}
+}
+
+function onKeydown(e: KeyboardEvent) {
+	if (selector.onKeydown(e)) {
+		e.preventDefault()
+		return
+	}
+
+	resetEmptyTitleError()
+
+	if (e.key === 'Enter') {
+		handleEnter(e)
+		return
+	}
+
+	if (e.key === 'Escape') {
+		blurTaskInput()
 	}
 }
 
