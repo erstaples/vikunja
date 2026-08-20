@@ -1,0 +1,79 @@
+name: Build image
+
+# Builds the fork's container image into kube-1's k3s containerd, where the
+# kubelet can run it directly (imagePullPolicy: IfNotPresent). Deployment is not
+# done here — vikunja is deployed from the homelab repo's umbrella chart, so a
+# roll is: tag here, then bump k8s/values/vikunja.yaml and `ansible/lab k8s vikunja`.
+#
+# Modelled on homelab/caltor's deploy.yml, with one addition that matters: this
+# image is far heavier to build than caltor's (a full pnpm frontend build plus an
+# xgo Go cross-compile). An unguarded run filled kube-1's 58G root volume, tripped
+# the kubelet's DiskPressure threshold, and evicted pods across the whole node —
+# Forgejo included. The disk guard below turns that failure mode into a failed
+# job instead of a lab outage. Do not remove it.
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Image tag to build (defaults to the short SHA)"
+        required: false
+
+jobs:
+  build:
+    runs-on: host
+    env:
+      IMAGE: git.home/homelab/vikunja
+      NERDCTL: "sudo nerdctl --address /run/k3s/containerd/containerd.sock --namespace k8s.io"
+      # k3s evicts at ~85% of the 58G root volume. The build's buildkit cache was
+      # already past 11G when it was killed mid-run, so anything under this has no
+      # business starting.
+      MIN_FREE_GB: "18"
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Reclaim build cache and check headroom
+        run: |
+          set -euo pipefail
+          echo "--- before ---"
+          df -h /
+          $NERDCTL builder prune --all --force || true
+          avail=$(df -BG --output=avail / | tail -1 | tr -dc '0-9')
+          echo "--- after prune: ${avail}G free ---"
+          if [ "$avail" -lt "$MIN_FREE_GB" ]; then
+            echo "REFUSING TO BUILD: ${avail}G free, need ${MIN_FREE_GB}G."
+            echo "Filling this volume evicts pods across the node. Free space first:"
+            echo "  sudo crictl rmi --prune    # drop unreferenced images"
+            exit 1
+          fi
+
+      - name: Build
+        run: |
+          set -euo pipefail
+          VERSION="${{ inputs.tag }}"
+          if [ -z "$VERSION" ]; then VERSION="${GITHUB_REF_NAME}"; fi
+          if [ -z "$VERSION" ] || [ "$VERSION" = "main" ]; then
+            VERSION="$(git rev-parse --short HEAD)"
+          fi
+          echo "building $IMAGE:$VERSION"
+          $NERDCTL build --build-arg RELEASE_VERSION="$VERSION" -t "$IMAGE:$VERSION" .
+          echo "IMAGE_TAG=$VERSION" >> "$GITHUB_ENV"
+
+      - name: Reclaim build cache
+        if: always()
+        run: |
+          set -euo pipefail
+          $NERDCTL builder prune --all --force || true
+          echo "--- after ---"
+          df -h /
+
+      - name: Report
+        run: |
+          set -euo pipefail
+          $NERDCTL images | grep -E "REPOSITORY|vikunja" || true
+          echo
+          echo "Built $IMAGE:$IMAGE_TAG into k3s containerd."
+          echo "To deploy: set image.tag in homelab k8s/values/vikunja.yaml and run 'ansible/lab k8s vikunja'."
