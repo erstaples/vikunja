@@ -1,0 +1,76 @@
+# syntax=docker/dockerfile:1@sha256:ecfaec9ed6d810b56388c508f4121597bfbba70d41a6dfeee4d8cad5f295fc32
+
+# Homelab build. The upstream Dockerfile compiles through xgo, which bundles
+# llvm-mingw, freebsdcross and osxcross so one build can ship every platform.
+# That costs more than 15G of transient layers and cache — measured on kube-1,
+# which has ~19G of headroom — and filling that volume evicts pods across the
+# node. kube-1 is arm64 and this image only ever runs there, so the entire
+# cross-compilation toolchain buys nothing.
+#
+# This file builds natively for the host architecture instead. Upstream's
+# Dockerfile is left untouched so official-parity builds stay possible.
+#
+# The runtime is alpine rather than upstream's scratch: mattn/go-sqlite3 needs
+# CGO, and a scratch image would require fully static musl linking. Alpine costs
+# ~8MB and avoids that entirely.
+
+FROM node:24.19.0-alpine@sha256:d32cdf619f63fe0471182d08996dd516c6275bb5fd31ae06e55a570bd9e1ad43 AS frontendbuilder
+
+WORKDIR /build
+
+ENV PNPM_CACHE_FOLDER=.cache/pnpm/
+ENV PUPPETEER_SKIP_DOWNLOAD=true
+ENV CYPRESS_INSTALL_BINARY=0
+
+COPY frontend/pnpm-lock.yaml frontend/package.json frontend/pnpm-workspace.yaml ./
+RUN npm install -g corepack && corepack enable && \
+    pnpm install --frozen-lockfile
+COPY frontend/ ./
+ARG RELEASE_VERSION=dev
+RUN echo "{\"VERSION\": \"${RELEASE_VERSION}\"}" > src/version.json && pnpm run build
+
+FROM golang:1.26-alpine AS apibuilder
+
+# build-base supplies the gcc/musl headers mattn/go-sqlite3 needs under CGO.
+RUN apk add --no-cache build-base git
+
+WORKDIR /go/src/code.vikunja.io/api
+
+# Warm the module cache before the source copy so an edit to application code
+# does not re-download the whole dependency graph.
+COPY go.mod go.sum ./
+RUN go mod download
+
+COPY . ./
+COPY --from=frontendbuilder /build/dist ./frontend/dist
+
+ARG RELEASE_VERSION=dev
+ENV RELEASE_VERSION=$RELEASE_VERSION
+ENV CGO_ENABLED=1
+
+# mage build is upstream's own target: it applies the version ldflags and the
+# osusergo tag, and refuses to run without frontend/dist present.
+RUN go install github.com/magefile/mage@latest && \
+    mage build
+
+FROM alpine:3.21
+
+LABEL org.opencontainers.image.title='Vikunja (homelab fork build)'
+LABEL org.opencontainers.image.source='https://github.com/erstaples/vikunja'
+LABEL org.opencontainers.image.licenses='AGPLv3'
+
+RUN apk add --no-cache ca-certificates tzdata && \
+    adduser -D -u 1000 vikunja && \
+    mkdir -p /app/vikunja /db && \
+    chown -R 1000:1000 /app/vikunja /db
+
+WORKDIR /app/vikunja
+EXPOSE 3456
+USER 1000
+
+ENV VIKUNJA_SERVICE_ROOTPATH=/app/vikunja/
+ENV VIKUNJA_DATABASE_PATH=/db/vikunja.db
+
+COPY --from=apibuilder --chown=1000:1000 /go/src/code.vikunja.io/api/vikunja /app/vikunja/vikunja
+
+ENTRYPOINT [ "/app/vikunja/vikunja" ]

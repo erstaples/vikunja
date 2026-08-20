@@ -59,7 +59,11 @@ jobs:
             VERSION="$(git rev-parse --short HEAD)"
           fi
           echo "building $IMAGE:$VERSION"
-          $NERDCTL build --build-arg RELEASE_VERSION="$VERSION" -t "$IMAGE:$VERSION" .
+          # Dockerfile.homelab, not the upstream Dockerfile: upstream builds through
+          # xgo for every platform, which needs >15G of transient space on a node
+          # that only has ~19G. See the comments at the top of that file.
+          $NERDCTL build -f Dockerfile.homelab \
+            --build-arg RELEASE_VERSION="$VERSION" -t "$IMAGE:$VERSION" .
           echo "IMAGE_TAG=$VERSION" >> "$GITHUB_ENV"
 
       - name: Reclaim build cache
